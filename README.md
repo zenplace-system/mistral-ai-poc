@@ -7,7 +7,7 @@
 このプロジェクトには、以下の方法でMistral AIモデルを利用するためのサンプルスクリプトが含まれています。
 
 1.  **OpenRouter経由:** 様々なLLMプロバイダーのAPIを統一インターフェースで利用できるOpenRouterプラットフォームを使用します。
-2.  **Mistral AI公式API経由:** Mistral AIが提供する公式API（SDK含む）を直接利用します。特にOCR機能を利用する場合はこちらが必要です。
+2.  **Mistral AI公式API経由:** Mistral AIが提供する公式API（SDK含む）を直接利用します。特にOCR機能（PDFや画像からのテキスト抽出）を利用する場合はこちらが必要です。
 
 ## 必要なもの：APIキー
 
@@ -88,6 +88,21 @@ bun install
 
     # 特定のPDFを指定して処理し、出力を指定
     bun run mistral:pdf-ocr path/to/your.pdf output/result_ocr.md
+    ```
+
+### `bun run mistral:image-ocr [画像ファイルパス] [出力ファイルパス]`
+
+*   **実行ファイル:** `src/scripts/mistral-image-ocr.ts`
+*   **機能:** 画像ファイル（JPEG/PNG）をOCR処理し、テキスト内容をMarkdown形式で出力します。内部的には画像をPDFに変換してからMistral OCR APIを使用します。
+*   **対応形式:** JPEG、PNG
+*   **必要なAPIキー:** `MISTRAL_API_KEY`
+*   **例:**
+    ```bash
+    # デフォルト画像 (input/image/OCR-tegaki-sample.jpg) を処理
+    bun run mistral:image-ocr
+
+    # 特定の画像を指定して処理し、出力を指定
+    bun run mistral:image-ocr path/to/your_image.jpg output/result_ocr.md
     ```
 
 ## API利用時の注意点

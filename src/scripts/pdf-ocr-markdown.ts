@@ -125,7 +125,7 @@ source: PDF変換（Mistral OCR処理）
 async function main() {
   try {
     // デフォルトのPDFファイルパス
-    const defaultPdfPath = path.join(process.cwd(), 'pdf', 'yogaworks_guide202203-02.pdf');
+    const defaultPdfPath = path.join(process.cwd(), 'input/pdf', 'yogaworks_guide202203-02.pdf');
     
     // コマンドライン引数からファイルパスを取得 (デフォルトのパスを設定)
     const pdfPath = process.argv[2] || defaultPdfPath;
