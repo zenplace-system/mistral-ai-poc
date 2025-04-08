@@ -1,3 +1,15 @@
+# Environment variables
 .env
+
+# Generated output files
 output/
-node_modules
+debug/
+
+# Node.js dependencies
+node_modules/
+
+# Test files (if any, specific to pdf-parse internal testing)
+test/
+
+# Bun build artifacts
+.bun/
