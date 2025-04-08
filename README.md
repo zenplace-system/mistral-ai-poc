@@ -15,7 +15,7 @@
 
 ### 1. OpenRouter APIキー (`OPENROUTER_API_KEY`)
 
-*   **使用スクリプト:** `mistral:sample`, `mistral:pdf-parse`
+*   **使用スクリプト:** `mistral:sample`
 *   **取得手順:**
     1.  [OpenRouter](https://openrouter.ai/) にアクセスし、アカウントを作成またはログインします。
     2.  ダッシュボードの [Keysページ](https://openrouter.ai/keys) に移動します。
@@ -73,21 +73,6 @@ bun install
 
     # カスタムプロンプトで実行
     bun run mistral:sample "日本の首都は？"
-    ```
-
-### `bun run mistral:pdf-parse [PDFファイルパス] [出力ファイルパス]`
-
-*   **実行ファイル:** `src/scripts/pdf-to-markdown.ts`
-*   **機能:** PDFファイルからテキストを抽出し、OpenRouter経由でMistral AIモデル（例: `mistral-large`）に送信してMarkdown形式に整形します。テキスト抽出は `pdf-parse` ライブラリを使用します。
-*   **制限事項:** **画像ベースのPDFやテキスト抽出が困難なPDFには対応していません。**
-*   **必要なAPIキー:** `OPENROUTER_API_KEY`
-*   **例:**
-    ```bash
-    # デフォルトPDF (pdf/yogaworks_guide202203-02.pdf) を処理
-    bun run mistral:pdf-parse
-
-    # 特定のPDFを指定して処理し、出力を指定
-    bun run mistral:pdf-parse path/to/your.pdf output/result.md
     ```
 
 ### `bun run mistral:pdf-ocr [PDFファイルパス] [出力ファイルパス]`
