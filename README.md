@@ -1,6 +1,3 @@
-目次
-@[toc]
-
 # OpenRouter経由でMistralAIを利用する方法
 
 このドキュメントは、開発チームがOpenRouterプラットフォームを通じてMistralAIモデルを利用するためのガイドです。
@@ -20,6 +17,48 @@ OpenRouterは、様々なLLM（大規模言語モデル）プロバイダーのA
         *   `mistralai/mixtral-8x7b-instruct`: 高性能なMoE（Mixture of Experts）モデル
         *   `mistralai/mistral-large`: Mistral AI の最新のフラッグシップモデル (利用可能か確認)
     *   利用したいモデル名をAPIリクエスト時に指定します。
+
+## サンプルスクリプトの実行方法
+
+このリポジトリには、OpenRouter経由でMistral AIを簡単に利用するためのサンプルスクリプトが含まれています。
+
+### 1. APIキーのセットアップ
+
+`.env`ファイルをプロジェクトのルートディレクトリに作成し、OpenRouterのAPIキーを以下のように設定します：
+
+```
+OPENROUTER_API_KEY=あなたのOpenRouterAPIキー
+```
+
+### 2. 依存関係のインストール
+
+```bash
+bun install
+```
+
+### 3. サンプルスクリプトの実行
+
+デフォルトのプロンプトでMistral AIを呼び出す：
+
+```bash
+bun run mistral:sample
+```
+
+カスタムプロンプトでMistral AIを呼び出す：
+
+```bash
+bun run mistral:sample "あなたの質問をここに入力してください"
+```
+
+## bun runコマンドについて
+
+このプロジェクトでは、[Bun](https://bun.sh/)をJavaScript/TypeScriptランタイムとして使用しています。`bun run`コマンドは、`package.json`の`scripts`セクションに定義されたスクリプトを実行するために使用されます。
+
+利用可能なスクリプト：
+
+- `mistral:sample` - src/scripts/mistral-sample.tsを実行し、Mistral AIモデルに質問を送信します
+
+新しいスクリプトを追加する場合は、`package.json`の`scripts`セクションに追加してください。
 
 ## API利用方法
 
