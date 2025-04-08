@@ -32,11 +32,25 @@ interface MistralOCRDimensions {
     width: number;
 }
 
+interface MistralOCRBlock {
+    type: string;
+    text?: string;
+    confidence?: number;
+    boundingBox?: {
+        topLeftX: number;
+        topLeftY: number;
+        bottomRightX: number;
+        bottomRightY: number;
+    };
+}
+
 interface MistralOCRPage {
     index: number;
     markdown: string;
+    text?: string;
     images: MistralOCRImage[];
     dimensions: MistralOCRDimensions;
+    blocks?: MistralOCRBlock[];
 }
 
 interface MistralOCRUsageInfo {
@@ -112,14 +126,35 @@ function getSampleImageText(): string {
 文字の書き癖や個性的な書き方についてはまだ課題があるが、通常の判読可能な手書き文字は認識できる。`;
 }
 
-async function convertImageToMarkdownWithMistralOCR(imagePath: string, fileName: string): Promise<string | null> {
+// マークダウン出力を整形する関数
+function formatMarkdown(markdown: string): string {
+    // デバッグログ
+    console.log('整形前のマークダウン末尾:', JSON.stringify(markdown.slice(-30)));
+    
+    // すべての '%' 文字を削除（マークダウンの内容を壊さないように注意）
+    let formattedText = markdown.replace(/([^\\])%/g, '$1').replace(/^%/g, '');
+    
+    // 余分な空行を削除して整形
+    formattedText = formattedText.replace(/\n{3,}/g, '\n\n');
+    
+    // 行末のスペースを削除
+    formattedText = formattedText.replace(/[ \t]+$/gm, '');
+    
+    // デバッグログ
+    console.log('整形後のマークダウン末尾:', JSON.stringify(formattedText.slice(-30)));
+    
+    return formattedText;
+}
+
+async function processImageWithMistralOCR(imagePath: string, fileName: string): Promise<string | null> {
     try {
         console.log(`画像ファイルの処理を開始します: ${imagePath}`);
         
-        // 画像をPDFに変換
+        // 画像をPDFに変換（Mistral OCR APIは直接JPEGをサポートしていないため。今後対応している可能性は高い）
         const pdfBytes = await convertImageToPdf(imagePath);
         
         // Mistralにファイルをアップロード
+        console.log(`PDFファイルをアップロード中...`);
         const uploadedFile = await client.files.upload({
             file: {
                 fileName: `${fileName}.pdf`, // PDFファイル名を指定
@@ -136,15 +171,16 @@ async function convertImageToMarkdownWithMistralOCR(imagePath: string, fileName:
         console.log(`署名付きURLを取得しました`);
 
         // OCR処理を実行
-        const ocrModel = 'mistral-ocr-latest'; // 使用するモデル名を定義
+        const ocrModel = 'mistral-ocr-latest';
         console.log(`Mistral OCRモデル (${ocrModel}) に処理をリクエスト中...`);
+        
         const ocrResponse = await client.ocr.process({
-            model: ocrModel, // OCR専用モデルを指定
+            model: ocrModel,
             document: {
-                type: 'document_url',
+                type: 'document_url', // 署名付きURLを使用
                 documentUrl: signedUrl.url,
             },
-            includeImageBase64: false, // 画像データは含めない（今回はMarkdownのみが必要）
+            includeImageBase64: false,
         });
 
         console.log('OCR処理が完了しました');
@@ -153,9 +189,90 @@ async function convertImageToMarkdownWithMistralOCR(imagePath: string, fileName:
         console.log('OCRレスポンス構造:');
         console.log(JSON.stringify(ocrResponse, null, 2));
         
-        // OCRは画像のテキスト認識に失敗しているようなので、サンプルの手書きテキストを代わりに使用
-        console.log('OCRでテキストが十分に認識されていないため、サンプルテキストを返します');
-        return getSampleImageText();
+        // OCR結果の解析
+        // 型キャストを使用して実際のレスポンス構造にアクセス
+        const typedResponse = ocrResponse as unknown as MistralOCRResponse;
+        
+        if (typedResponse.pages && typedResponse.pages.length > 0) {
+            let markdownOutput = '';
+            let hasContent = false;
+            
+            for (const page of typedResponse.pages) {
+                console.log(`ページ ${page.index} の処理:`);
+                
+                // Markdown内容の確認
+                if (page.markdown) {
+                    console.log(`- Markdown長: ${page.markdown.length} 文字`);
+                    console.log(`- Markdown最後の30文字: "${page.markdown.slice(-30)}"`);
+                    
+                    // 単なる画像参照以外の内容があるか確認
+                    const isOnlyImageReference = page.markdown.trim().match(/^!\[.*\]\(.*\)$/);
+                    if (!isOnlyImageReference && page.markdown.trim().length > 0) {
+                        markdownOutput += page.markdown + '\n\n';
+                        hasContent = true;
+                        console.log('- 有効なMarkdown内容を検出しました');
+                    } else {
+                        console.log('- Markdownは画像参照のみです');
+                    }
+                }
+                
+                // テキスト内容があれば使用
+                if (page.text && page.text.trim().length > 0) {
+                    console.log(`- テキスト長: ${page.text.length} 文字`);
+                    // Markdownが空または画像参照だけの場合はテキストを使用
+                    if (!hasContent) {
+                        markdownOutput += page.text + '\n\n';
+                        hasContent = true;
+                        console.log('- テキスト内容を使用します');
+                    }
+                }
+                
+                // ブロック情報があれば処理
+                if (page.blocks && page.blocks.length > 0) {
+                    console.log(`- ブロック数: ${page.blocks.length}`);
+                    if (!hasContent) {
+                        // ブロックからテキストを抽出して使用
+                        let blockText = '';
+                        for (const block of page.blocks) {
+                            if (block.text) {
+                                blockText += block.text + '\n';
+                            }
+                        }
+                        
+                        if (blockText.trim().length > 0) {
+                            markdownOutput += blockText + '\n\n';
+                            hasContent = true;
+                            console.log('- ブロックからテキスト内容を抽出しました');
+                        }
+                    }
+                }
+            }
+            
+            if (hasContent) {
+                console.log(`合計${typedResponse.pages.length}ページ分のテキストを抽出しました`);
+                // 出力前に「%」が含まれていないか確認
+                const containsPercent = markdownOutput.includes('%');
+                console.log(`マークダウン出力に % が含まれているか: ${containsPercent}`);
+                if (containsPercent) {
+                    console.log(`% を含む場所: ${markdownOutput.indexOf('%')}`);
+                    const context = markdownOutput.substring(
+                        Math.max(0, markdownOutput.indexOf('%') - 20),
+                        Math.min(markdownOutput.length, markdownOutput.indexOf('%') + 20)
+                    );
+                    console.log(`% の前後のコンテキスト: "${context}"`);
+                }
+                
+                // マークダウンから％を削除して返す
+                const cleanedMarkdown = markdownOutput.replace(/%/g, '');
+                return cleanedMarkdown.trim();
+            } else {
+                console.error('OCR処理の結果、有効なテキストが見つかりませんでした。');
+                throw new Error('OCR処理でテキストを抽出できませんでした。');
+            }
+        } else {
+            console.error('OCR処理の結果、ページが見つかりませんでした。');
+            throw new Error('OCR処理でページを検出できませんでした。');
+        }
     } catch (error) {
         console.error('OCR処理中にエラーが発生しました:', error);
         // エラーの詳細情報を出力
@@ -165,8 +282,8 @@ async function convertImageToMarkdownWithMistralOCR(imagePath: string, fileName:
                 console.error('エラー原因:', error.cause);
             }
         }
-        // エラーが発生しても、サンプルテキストを返す
-        return getSampleImageText();
+        // エラーをそのまま再スローする
+        throw error;
     }
 }
 
@@ -192,7 +309,7 @@ async function convertImageToMarkdown(imagePath: string, outputPath?: string): P
     }
     
     // Mistral OCRを使用して画像をマークダウンに変換
-    const markdown = await convertImageToMarkdownWithMistralOCR(imagePath, fileName);
+    const markdown = await processImageWithMistralOCR(imagePath, fileName);
     
     if (markdown === null) {
         throw new Error('Mistral OCRによるMarkdown変換に失敗しました');
@@ -207,12 +324,31 @@ source: 画像OCR処理（Mistral OCR）
 
 `;
     
-    const finalMarkdown = metaData + markdown;
+    // 最終的なマークダウンを作成し、整形する
+    let finalMarkdown = formatMarkdown(metaData + markdown);
+    
+    // 保存前に最終確認
+    console.log(`保存前の最終マークダウン末尾40文字: "${finalMarkdown.slice(-40)}"`);
+    console.log(`マークダウン内に % が含まれるか: ${finalMarkdown.includes('%')}`);
     
     // 出力パスが指定されている場合はファイルに保存
     if (outputPath) {
+      // 最終的な対策として、保存前に特定パターンの置換を行う
+      // 特に「isting bodies can be extracted%」のパターンが頻繁に出現している
+      finalMarkdown = finalMarkdown
+        .replace(/bodies can be extracted%/g, 'bodies can be extracted')
+        .replace(/English existing bodies can be extracted%/g, 'English existing bodies can be extracted')
+        .replace(/%\s*$/g, '') // 末尾の %
+        .replace(/%\s*\n/g, '\n') // 行末の %
+        .replace(/%/g, ''); // 残りすべての %
+      
       fs.writeFileSync(outputPath, finalMarkdown, 'utf8');
       console.log(`マークダウンファイルを保存しました: ${outputPath}`);
+      
+      // 保存後の内容を確認
+      const savedContent = fs.readFileSync(outputPath, 'utf8');
+      console.log(`保存後のファイル末尾40文字: "${savedContent.slice(-40)}"`);
+      console.log(`保存後のファイルに % が含まれるか: ${savedContent.includes('%')}`);
     }
     
     return finalMarkdown;

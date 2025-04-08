@@ -13,3 +13,5 @@ test/
 
 # Bun build artifacts
 .bun/
+
+.DS_Store
